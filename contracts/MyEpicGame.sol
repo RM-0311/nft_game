@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 // Helper functions OpenZeppelin provides
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-
+import "./libraries/Base64.sol";
 
 import "hardhat/console.sol";
 
@@ -42,9 +42,7 @@ contract MyEpicGame is ERC721 {
         string[] memory characterImageURIs,
         uint256[] memory characterHp,
         uint256[] memory characterAttackDmg
-    ) 
-        ERC721("Heroes", "HERO")
-    {
+    ) ERC721("Heroes", "HERO") {
         // Loop through all the characters, and save the values in the contract
         for (uint256 i = 0; i < characterNames.length; i += 1) {
             defaultCharacters.push(
@@ -55,7 +53,8 @@ contract MyEpicGame is ERC721 {
                     hp: characterHp[i],
                     maxHp: characterHp[i],
                     attackDamage: characterAttackDmg[i]
-            }));
+                })
+            );
 
             CharacterAttributes memory c = defaultCharacters[i];
 
@@ -72,7 +71,7 @@ contract MyEpicGame is ERC721 {
     }
 
     // Users Hit this function to get their NFT based on the characterId they send in
-    function mintCharacterNFT(uint _characterIndex) external {
+    function mintCharacterNFT(uint256 _characterIndex) external {
         // get current tokenId
         uint256 newItemId = _tokenIds.current();
 
@@ -89,12 +88,57 @@ contract MyEpicGame is ERC721 {
             attackDamage: defaultCharacters[_characterIndex].attackDamage
         });
 
-        console.log("Minted NFT w/ tokenId %s and characterIndex %s", newItemId, _characterIndex);
+        console.log(
+            "Minted NFT w/ tokenId %s and characterIndex %s",
+            newItemId,
+            _characterIndex
+        );
 
         // Keep a way to see who owns what NFT
         nftHolders[msg.sender] = newItemId;
 
         // Incremement the tokenId for the next person
         _tokenIds.increment();
+    }
+
+    function tokenURI(uint256 _tokenId)
+        public
+        view
+        override
+        returns (string memory)
+    {
+        CharacterAttributes memory charAttributes = nftHolderAttributes[
+            _tokenId
+        ];
+
+        string memory strHp = Strings.toString(charAttributes.hp);
+        string memory strMaxHp = Strings.toString(charAttributes.maxHp);
+        string memory strAttackDamage = Strings.toString(
+            charAttributes.attackDamage
+        );
+
+        string memory json = Base64.encode(
+            abi.encodePacked(
+                '{"name": "',
+                charAttributes.name,
+                " -- NFT #: ",
+                Strings.toString(_tokenId),
+                '", "description": "This is an NFT That lets people pit their favorite actors against each other!", "image": "',
+                charAttributes.imageURI,
+                '", "attributes": [ { "trait_type": "Health Points", "value": ',
+                strHp,
+                ', "max_value":',
+                strMaxHp,
+                '}, { "trait_type": "Attack Damage", "value": ',
+                strAttackDamage,
+                "} ]}"
+            )
+        );
+
+        string memory output = string(
+            abi.encodePacked("data:application/json;base64,", json)
+        );
+
+        return output;
     }
 }
